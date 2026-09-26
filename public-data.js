@@ -77,6 +77,7 @@ async function loadPage() {
   const [, selector, emptyMessage] = pages[key];
   const target = document.querySelector(selector) || (key === 'pengurus' ? document.querySelector('#pengurus .people') : null);
   if (!target) return;
+  if (key === 'pengurus') target.classList.add('profile-grid');
   showEmpty(target, 'Memuat data…');
   try {
     db = await client();
