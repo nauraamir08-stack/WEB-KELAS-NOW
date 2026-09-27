@@ -46,8 +46,24 @@ function personCard(item) {
   } else card.append(make('span', 'profile-initial', item.name.slice(0, 1).toUpperCase()));
   const meta = make('div', 'profile-meta');
   meta.append(make('h3', '', item.name));
-  if (item.role) meta.append(make('p', 'profile-role', item.role));
+  if (item.role) {
+    item.role.split(/\r?\n/).map((role) => role.trim()).filter(Boolean)
+      .forEach((role) => meta.append(make('p', 'profile-role', role)));
+  }
   card.append(meta); return card;
+}
+
+function rolesFor(item) {
+  return (item.role || '').split(/\r?\n/).map((role) => role.trim()).filter(Boolean);
+}
+
+function isCourseResponsible(role) {
+  return /^(?:pj\b|pic\b|penanggung[\s_-]*jawab\b)/i.test(role)
+    || /\b(?:matkul|mata\s+kuliah)\b/i.test(role);
+}
+
+function personCardWithRoles(item, roles) {
+  return personCard({ ...item, role: roles.join('\n') });
 }
 
 function scheduleDayCard(day, items) {
@@ -157,14 +173,31 @@ async function loadPage() {
   const [, selector, emptyMessage] = pages[key];
   const target = document.querySelector(selector) || (key === 'pengurus' ? document.querySelector('#pengurus .people') : null);
   if (!target) return;
-  if (key === 'pengurus') target.classList.add('profile-grid');
   showEmpty(target, 'Memuat data…');
   try {
     db = await client();
-    if (key === 'anggota' || key === 'pengurus') {
+    if (key === 'pengurus') {
+      const responsibleTarget = document.querySelector('#responsible-list');
+      if (responsibleTarget) showEmpty(responsibleTarget, 'Memuat data…');
       const { data, error } = await db.from('class_members').select('*').order('created_at', { ascending: true });
       if (error) throw error;
-      const people = data.filter((person) => key === 'pengurus' ? Boolean(person.role) : !person.role);
+      const perangkat = [];
+      const responsibles = [];
+      data.forEach((person) => {
+        const roles = rolesFor(person);
+        const perangkatRoles = roles.filter((role) => !isCourseResponsible(role));
+        const responsibleRoles = roles.filter(isCourseResponsible);
+        if (perangkatRoles.length) perangkat.push(personCardWithRoles(person, perangkatRoles));
+        if (responsibleRoles.length) responsibles.push(personCardWithRoles(person, responsibleRoles));
+      });
+      target.replaceChildren(...(perangkat.length ? perangkat : [make('div', 'empty', 'Belum ada perangkat kelas.')]));
+      if (responsibleTarget) responsibleTarget.replaceChildren(...(responsibles.length ? responsibles : [make('div', 'empty', 'Belum ada penanggung jawab mata kuliah.')]));
+      return;
+    }
+    if (key === 'anggota') {
+      const { data, error } = await db.from('class_members').select('*').order('created_at', { ascending: true });
+      if (error) throw error;
+      const people = data.filter((person) => !person.role);
       target.replaceChildren(...(people.length ? people.map(personCard) : [make('div', 'empty', emptyMessage)])); return;
     }
     if (key === 'jadwal') {
@@ -180,6 +213,7 @@ async function loadPage() {
     target.replaceChildren(...(data.length ? data.map(galleryCard) : [make('div', 'empty', emptyMessage)]));
   } catch (error) {
     console.error(error); showEmpty(target, 'Data belum dapat dimuat. Coba buka kembali beberapa saat lagi.');
+    if (key === 'pengurus') showEmpty(document.querySelector('#responsible-list'), 'Data belum dapat dimuat. Coba buka kembali beberapa saat lagi.');
   }
 }
 
