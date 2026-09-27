@@ -50,13 +50,21 @@ function personCard(item) {
   card.append(meta); return card;
 }
 
-function scheduleCard(item) {
-  const card = make('article', 'schedule-card');
-  const info = make('div', 'schedule-info');
-  info.append(make('h3', '', item.course));
-  info.append(make('p', '', item.room ? `Ruang ${item.room}` : 'Mata kuliah'));
-  card.append(make('span', 'schedule-day', item.day), make('strong', 'schedule-time', `${item.start_time.slice(0, 5)}–${item.end_time.slice(0, 5)}`), info);
-  return card;
+function scheduleDayCard(day, items) {
+  const card = make('article', 'day-schedule-card');
+  const head = make('div', 'day-schedule-head');
+  head.append(make('span', 'day-schedule-label', day), make('span', 'day-schedule-count', `${items.length} kelas`));
+  const list = make('div', 'day-schedule-list');
+  if (!items.length) list.append(make('p', 'day-schedule-empty', 'Belum ada jadwal.'));
+  else items.forEach((item) => {
+    const lesson = make('article', 'day-lesson');
+    const info = make('div', 'day-lesson-info');
+    info.append(make('h3', '', item.course));
+    info.append(make('p', '', item.room ? `Ruang ${item.room}` : 'Ruang belum diisi'));
+    lesson.append(make('strong', 'day-lesson-time', `${item.start_time.slice(0, 5)}–${item.end_time.slice(0, 5)}`), info);
+    list.append(lesson);
+  });
+  card.append(head, list); return card;
 }
 
 function galleryCard(item) {
@@ -164,7 +172,7 @@ async function loadPage() {
       if (error) throw error;
       const order = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
       data.sort((a, b) => order.indexOf(a.day) - order.indexOf(b.day) || a.start_time.localeCompare(b.start_time));
-      target.replaceChildren(...(data.length ? data.map(scheduleCard) : [make('div', 'empty', emptyMessage)])); return;
+      target.replaceChildren(...order.map((day) => scheduleDayCard(day, data.filter((item) => item.day === day)))); return;
     }
     const { data, error } = await db.from('class_gallery').select('*').order('event_date', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false });
     if (error) throw error;
