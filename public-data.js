@@ -82,7 +82,7 @@ async function loadPage() {
   try {
     db = await client();
     if (key === 'anggota' || key === 'pengurus') {
-      const { data, error } = await db.from('class_members').select('*').order('name');
+      const { data, error } = await db.from('class_members').select('*').order('created_at', { ascending: true });
       if (error) throw error;
       const people = data.filter((person) => key === 'pengurus' ? Boolean(person.role) : !person.role);
       target.replaceChildren(...(people.length ? people.map(personCard) : [make('div', 'empty', emptyMessage)])); return;
